@@ -198,7 +198,7 @@ extension NotificationMover: UIConfigurable {
         titleLabel.font = NSFont.boldSystemFont(ofSize: 16)
         contentView.addSubview(titleLabel)
 
-        let versionLabel = NSTextField(labelWithString: "Version 1.0.0")
+        let versionLabel = NSTextField(labelWithString: "Version 1.0.1")
         versionLabel.frame = NSRect(x: 0, y: 90, width: 300, height: 20)
         versionLabel.alignment = .center
         contentView.addSubview(versionLabel)

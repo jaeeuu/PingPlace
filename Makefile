@@ -10,15 +10,15 @@ build:
 	swiftc src/PingPlace.swift -o PingPlace.app/Contents/MacOS/PingPlace-arm64 -O -target arm64-apple-macos14.0
 	lipo -create -output PingPlace.app/Contents/MacOS/PingPlace PingPlace.app/Contents/MacOS/PingPlace-x86_64 PingPlace.app/Contents/MacOS/PingPlace-arm64
 	rm PingPlace.app/Contents/MacOS/PingPlace-x86_64 PingPlace.app/Contents/MacOS/PingPlace-arm64
+	codesign -f -s - PingPlace.app/Contents/MacOS/PingPlace
 
 run:
 	@open PingPlace.app
 
 clean:
-	@rm -rf PingPlace.app
-	@rm -f pingplace
+	@rm -rf PingPlace.app PingPlace.app.tar.gz
 
-publish: build
+publish:
 	@tar -czf PingPlace.app.tar.gz PingPlace.app
 	@shasum -a 256 PingPlace.app.tar.gz | cut -d ' ' -f 1
 	@echo "don't forget to change the version number"
