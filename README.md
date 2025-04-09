@@ -6,7 +6,7 @@ Control notification position on macOS.
 
 ```bash
 brew tap notwadegrimridge/brew
-brew install pingplace
+brew install pingplace --no-quarantine
 ```
 
 ## Usage
