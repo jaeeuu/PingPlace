@@ -2,6 +2,8 @@
 
 Control notification position on macOS.
 
+![image](https://github.com/user-attachments/assets/469b318f-eba5-464f-87be-74d3decaa8a2)
+
 ## Installation
 
 ```bash
