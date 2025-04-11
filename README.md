@@ -29,6 +29,8 @@ The app needs accessibility permissions to work. It lives in the top bar. You ca
 
 ## Support
 
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/wadegrimridge)
+
 Follow [@WadeGrimridge](https://x.com/WadeGrimridge) on X
 
 ## License
