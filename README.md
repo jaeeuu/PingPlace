@@ -30,6 +30,7 @@ The app needs accessibility permissions to work. It lives in the top bar. You ca
 ## Support
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/wadegrimridge)
+<a href="https://www.buymeacoffee.com/wadegrimridge" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 41px !important;width: 174px !important;"></a>
 
 Follow [@WadeGrimridge](https://x.com/WadeGrimridge) on X
 
