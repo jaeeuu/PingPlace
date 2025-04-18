@@ -50,7 +50,7 @@ class NotificationMover: NSObject, NSApplicationDelegate {
         if !AXIsProcessTrusted() {
             let alert = NSAlert()
             alert.messageText = "Accessibility Permissions Needed"
-            alert.informativeText = "Please enable accessibility for PingPlace in System Preferences > Security & Privacy > Privacy > Accessibility."
+            alert.informativeText = "Please enable accessibility for PingPlace in System Preferences > Security & Privacy > Privacy > Accessibility.\n\nIf PingPlace is already listed, please select it and click the minus (-) button to remove it completely, then add it again.\n\nSorry for the inconvenience (blame Apple's greed), it shouldn't happen again!"
             alert.addButton(withTitle: "Open System Preferences")
             alert.addButton(withTitle: "Quit")
             if alert.runModal() == .alertFirstButtonReturn {
