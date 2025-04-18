@@ -8,7 +8,7 @@ enum NotificationPosition {
 }
 
 protocol NotificationPositionable {
-    func repositionNotification()
+    func repositionNotification(_ window: AXUIElement)
     func setupObserver()
 }
 
@@ -219,8 +219,6 @@ extension NotificationMover: UIConfigurable {
                 item.state = (item.representedObject as? NotificationPosition) == position ? .on : .off
             }
         }
-
-        repositionNotification()
     }
 
     @objc func showAbout() {
@@ -319,39 +317,30 @@ extension NotificationMover: NotificationPositionable {
         })?.processIdentifier
     }
 
-    func repositionNotification() {
-        if currentPosition == .topRight { return }
-
-        guard let pid = getNotificationCenterPID() else { return }
-        let app = AXUIElementCreateApplication(pid)
-        guard let windows = getWindows(from: app) else { return }
+    func repositionNotification(_ window: AXUIElement) {
+        if currentPosition == .topRight || !isNotificationWindow(window) { return }
 
         let targetSubroles = ["AXNotificationCenterBanner", "AXNotificationCenterAlert"]
 
-        for window in windows where isNotificationWindow(window) {
-            guard let windowSize = getSize(of: window),
-                  let bannerContainer = findElementWithSubrole(root: window, targetSubroles: targetSubroles),
-                  let notifSize = getSize(of: bannerContainer)
-            else {
-                continue
-            }
+        guard let windowSize = getSize(of: window),
+              let bannerContainer = findElementWithSubrole(root: window, targetSubroles: targetSubroles),
+              let notifSize = getSize(of: bannerContainer),
+              let position = getPosition(of: bannerContainer)
+        else { return }
 
-            guard let position = getPosition(of: bannerContainer) else { continue }
+        let screenWidth = NSScreen.main!.frame.width
+        let rightEdge = position.x + notifSize.width
+        let padding = screenWidth - rightEdge
 
-            let screenWidth = NSScreen.main!.frame.width
-            let rightEdge = position.x + notifSize.width
-            let padding = screenWidth - rightEdge
+        let newPosition = calculateNewPosition(
+            currentPosition: currentPosition,
+            windowSize: windowSize,
+            notifSize: notifSize,
+            position: position,
+            padding: padding
+        )
 
-            let newPosition = calculateNewPosition(
-                currentPosition: currentPosition,
-                windowSize: windowSize,
-                notifSize: notifSize,
-                position: position,
-                padding: padding
-            )
-
-            setPosition(window, x: newPosition.x, y: newPosition.y)
-        }
+        setPosition(window, x: newPosition.x, y: newPosition.y)
     }
 
     private func getPosition(of element: AXUIElement) -> CGPoint? {
@@ -466,9 +455,9 @@ extension NotificationMover: NSWindowDelegate {
     }
 }
 
-private func observerCallback(observer _: AXObserver, element _: AXUIElement, notification _: CFString, context: UnsafeMutableRawPointer?) {
+private func observerCallback(observer _: AXObserver, element: AXUIElement, notification _: CFString, context: UnsafeMutableRawPointer?) {
     let mover = Unmanaged<NotificationMover>.fromOpaque(context!).takeUnretainedValue()
-    mover.repositionNotification()
+    mover.repositionNotification(element)
 }
 
 let app = NSApplication.shared
