@@ -3,6 +3,7 @@ import Cocoa
 
 enum NotificationPosition {
     case topLeft, topMiddle, topRight
+    case middleLeft, middleRight
     case bottomLeft, bottomMiddle, bottomRight
 }
 
@@ -28,6 +29,8 @@ class NotificationMover: NSObject, NSApplicationDelegate {
         case "topLeft": return .topLeft
         case "topMiddle": return .topMiddle
         case "topRight": return .topRight
+        case "middleLeft": return .middleLeft
+        case "middleRight": return .middleRight
         case "bottomLeft": return .bottomLeft
         case "bottomMiddle": return .bottomMiddle
         case "bottomRight": return .bottomRight
@@ -79,6 +82,8 @@ extension NotificationMover: UIConfigurable {
             ("Top Left", .topLeft),
             ("Top Middle", .topMiddle),
             ("Top Right", .topRight),
+            ("Middle Left", .middleLeft),
+            ("Middle Right", .middleRight),
             ("Bottom Left", .bottomLeft),
             ("Bottom Middle", .bottomMiddle),
             ("Bottom Right", .bottomRight),
@@ -312,17 +317,20 @@ extension NotificationMover: NotificationPositionable {
         var newY: CGFloat = 0
 
         switch currentPosition {
-        case .topLeft, .bottomLeft:
+        case .topLeft, .middleLeft, .bottomLeft:
             newX = padding - position.x
         case .topMiddle, .bottomMiddle:
             newX = -(windowSize.width - notifSize.width) / 2
-        case .topRight, .bottomRight:
+        case .topRight, .middleRight, .bottomRight:
             newX = 0
         }
 
         switch currentPosition {
         case .topLeft, .topMiddle, .topRight:
             newY = 0
+        case .middleLeft, .middleRight:
+            let dockSize = NSScreen.main!.frame.height - NSScreen.main!.visibleFrame.height
+            newY = (windowSize.height - notifSize.height) / 2 - dockSize - paddingAboveDock
         case .bottomLeft, .bottomMiddle, .bottomRight:
             let dockSize = NSScreen.main!.frame.height - NSScreen.main!.visibleFrame.height
             newY = windowSize.height - notifSize.height - dockSize - paddingAboveDock
