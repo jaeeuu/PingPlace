@@ -100,11 +100,34 @@ extension NotificationMover: UIConfigurable {
         let launchItem = NSMenuItem(title: "Launch at Login", action: #selector(toggleLaunchAtLogin(_:)), keyEquivalent: "")
         launchItem.state = FileManager.default.fileExists(atPath: launchAgentPlistPath) ? .on : .off
         menu.addItem(launchItem)
+
+        let donateMenu = NSMenuItem(title: "Donate", action: nil, keyEquivalent: "")
+        let donateSubmenu = NSMenu()
+
+        let kofiItem = NSMenuItem(title: "Ko-fi", action: #selector(openKofi), keyEquivalent: "")
+        let buyMeACoffeeItem = NSMenuItem(title: "Buy Me a Coffee", action: #selector(openBuyMeACoffee), keyEquivalent: "")
+
         menu.addItem(NSMenuItem.separator())
+        donateSubmenu.addItem(kofiItem)
+        donateSubmenu.addItem(buyMeACoffeeItem)
+        donateMenu.submenu = donateSubmenu
         menu.addItem(NSMenuItem(title: "About", action: #selector(showAbout), keyEquivalent: ""))
+        menu.addItem(donateMenu)
         menu.addItem(NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
 
         return menu
+    }
+
+    @objc private func openKofi() {
+        if let url = URL(string: "https://ko-fi.com/wadegrimridge") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
+    @objc private func openBuyMeACoffee() {
+        if let url = URL(string: "https://www.buymeacoffee.com/wadegrimridge") {
+            NSWorkspace.shared.open(url)
+        }
     }
 
     @objc private func toggleLaunchAtLogin(_ sender: NSMenuItem) {
