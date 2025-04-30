@@ -23,6 +23,8 @@ class NotificationMover: NSObject, NSApplicationDelegate {
     private let paddingAboveDock: CGFloat = 30
     private var axObserver: AXObserver?
     private var statusItem: NSStatusItem?
+    private var isMenuBarIconHidden: Bool = UserDefaults.standard.bool(forKey: "isMenuBarIconHidden")
+
     private var currentPosition: NotificationPosition = {
         let rawValue = UserDefaults.standard.string(forKey: "notificationPosition") ?? "topMiddle"
         switch rawValue {
@@ -43,6 +45,16 @@ class NotificationMover: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_: Notification) {
         checkAccessibilityPermissions()
         setupObserver()
+
+        if !isMenuBarIconHidden {
+            setupStatusItem()
+        }
+    }
+
+    func applicationWillBecomeActive(_: Notification) {
+        if !isMenuBarIconHidden { return }
+        isMenuBarIconHidden = false
+        UserDefaults.standard.set(false, forKey: "isMenuBarIconHidden")
         setupStatusItem()
     }
 
@@ -63,6 +75,11 @@ class NotificationMover: NSObject, NSApplicationDelegate {
 
 extension NotificationMover: UIConfigurable {
     func setupStatusItem() {
+        if isMenuBarIconHidden {
+            statusItem = nil
+            return
+        }
+
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         if let button = statusItem?.button {
             if let menuBarIcon = NSImage(named: "MenuBarIcon") {
@@ -101,6 +118,9 @@ extension NotificationMover: UIConfigurable {
         launchItem.state = FileManager.default.fileExists(atPath: launchAgentPlistPath) ? .on : .off
         menu.addItem(launchItem)
 
+        let hideIconItem = NSMenuItem(title: "Hide Menu Bar Icon", action: #selector(toggleMenuBarIcon(_:)), keyEquivalent: "")
+        menu.addItem(hideIconItem)
+
         let donateMenu = NSMenuItem(title: "Donate", action: nil, keyEquivalent: "")
         let donateSubmenu = NSMenu()
 
@@ -127,6 +147,22 @@ extension NotificationMover: UIConfigurable {
     @objc private func openBuyMeACoffee() {
         if let url = URL(string: "https://www.buymeacoffee.com/wadegrimridge") {
             NSWorkspace.shared.open(url)
+        }
+    }
+
+    @objc private func toggleMenuBarIcon(_: NSMenuItem) {
+        let alert = NSAlert()
+        alert.messageText = "Hide Menu Bar Icon"
+        alert.informativeText = "The menu bar icon will be hidden. To show it again, launch PingPlace again."
+        alert.addButton(withTitle: "Hide Icon")
+        alert.addButton(withTitle: "Cancel")
+
+        let response = alert.runModal()
+        if response == .alertFirstButtonReturn {
+            isMenuBarIconHidden = true
+            UserDefaults.standard.set(true, forKey: "isMenuBarIconHidden")
+
+            statusItem = nil
         }
     }
 
