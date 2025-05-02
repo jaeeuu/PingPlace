@@ -318,7 +318,7 @@ extension NotificationMover: NotificationPositionable {
     }
 
     func repositionNotification(_ window: AXUIElement) {
-        if currentPosition == .topRight || !isNotificationWindow(window) { return }
+        if currentPosition == .topRight { return }
 
         let targetSubroles = ["AXNotificationCenterBanner", "AXNotificationCenterAlert"]
 
@@ -393,12 +393,6 @@ extension NotificationMover {
         var windows: AnyObject?
         AXUIElementCopyAttributeValue(element, kAXWindowsAttribute as CFString, &windows)
         return windows as? [AXUIElement]
-    }
-
-    private func isNotificationWindow(_ window: AXUIElement) -> Bool {
-        var title: AnyObject?
-        AXUIElementCopyAttributeValue(window, kAXTitleAttribute as CFString, &title)
-        return (title as? String) == notificationWindowTitle
     }
 
     private func getSize(of element: AXUIElement) -> CGSize? {
