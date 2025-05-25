@@ -198,6 +198,7 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     @objc private func changePosition(_ sender: NSMenuItem) {
         guard let position = sender.representedObject as? NotificationPosition else { return }
+        let oldPosition = currentPosition
         currentPosition = position
         UserDefaults.standard.set(position.rawValue, forKey: "notificationPosition")
 
@@ -205,6 +206,7 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate {
             item.state = (item.representedObject as? NotificationPosition) == position ? .on : .off
         }
 
+        debugLog("Position changed: \(oldPosition.displayName) → \(position.displayName)")
         repositionAllNotifications()
     }
 
@@ -220,12 +222,15 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate {
         cachedInitialNotifSize = notifSize
         cachedInitialPadding = padding
 
-        debugLog("Cached initial notification position and dimensions")
+        debugLog("Initial notification cached - size: \(notifSize), position: \(position), padding: \(padding)")
     }
 
     private func repositionNewNotification(_ window: AXUIElement) -> Bool {
         guard currentPosition != .topRight else { return false }
-        guard !hasWidgetElements(window) else { return false }
+        guard !hasWidgetElements(window) else {
+            debugLog("Skipping reposition - widget window detected")
+            return false
+        }
 
         let targetSubroles = ["AXNotificationCenterBanner", "AXNotificationCenterAlert"]
         guard let windowSize = getSize(of: window),
@@ -233,6 +238,7 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate {
               let notifSize = getSize(of: bannerContainer),
               let position = getPosition(of: bannerContainer)
         else {
+            debugLog("Failed to get notification dimensions or find banner container")
             return false
         }
 
@@ -250,6 +256,7 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate {
         )
 
         setPosition(window, x: newPosition.x, y: newPosition.y)
+        debugLog("Repositioned notification to \(currentPosition.displayName) - new coords: (\(newPosition.x), \(newPosition.y))")
         return true
     }
 
@@ -258,17 +265,28 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate {
               let cachedWinSize = cachedInitialWindowSize,
               let cachedNotifSize = cachedInitialNotifSize,
               let cachedPad = cachedInitialPadding
-        else { return }
+        else {
+            debugLog("Cannot reposition all - missing cached data")
+            return
+        }
 
         guard let pid = NSWorkspace.shared.runningApplications.first(where: {
             $0.bundleIdentifier == notificationCenterBundleID
-        })?.processIdentifier else { return }
+        })?.processIdentifier else {
+            debugLog("Cannot find Notification Center process")
+            return
+        }
 
         let app = AXUIElementCreateApplication(pid)
         var windowsRef: AnyObject?
         guard AXUIElementCopyAttributeValue(app, kAXWindowsAttribute as CFString, &windowsRef) == .success,
-              let windows = windowsRef as? [AXUIElement] else { return }
+              let windows = windowsRef as? [AXUIElement]
+        else {
+            debugLog("Failed to get notification windows")
+            return
+        }
 
+        var repositionedCount = 0
         for window in windows {
             guard !hasWidgetElements(window) else { continue }
 
@@ -285,27 +303,16 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate {
             )
 
             setPosition(window, x: newPosition.x, y: newPosition.y)
+            repositionedCount += 1
         }
+
+        debugLog("Repositioned \(repositionedCount) existing notifications to \(currentPosition.displayName)")
     }
 
     func handleNewNotificationWindow(_ window: AXUIElement) {
-        if debugMode {
-            let windowTitle = getWindowTitle(window)
-            let windowIdentifier = getWindowIdentifier(window)
-            debugLog("Window created with title: '\(windowTitle ?? "nil")', identifier: '\(windowIdentifier ?? "nil")'")
-        }
+        guard !hasWidgetElements(window) else { return }
+        guard repositionNewNotification(window) else { return }
 
-        guard !hasWidgetElements(window) else {
-            debugLog("Skipping - detected Notification Center UI (has widget elements)")
-            return
-        }
-
-        guard repositionNewNotification(window) else {
-            debugLog("Failed validation checks")
-            return
-        }
-
-        debugLog("Repositioning valid notification window")
         pollingEndTime = Date().addingTimeInterval(6.5)
     }
 
@@ -387,7 +394,10 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate {
     func setupObserver() {
         guard let pid = NSWorkspace.shared.runningApplications.first(where: {
             $0.bundleIdentifier == notificationCenterBundleID
-        })?.processIdentifier else { return }
+        })?.processIdentifier else {
+            debugLog("Failed to setup observer - Notification Center not found")
+            return
+        }
 
         let app = AXUIElementCreateApplication(pid)
         var observer: AXObserver?
@@ -397,6 +407,8 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let selfPtr = UnsafeMutableRawPointer(Unmanaged.passUnretained(self).toOpaque())
         AXObserverAddNotification(observer!, app, kAXWindowCreatedNotification as CFString, selfPtr)
         CFRunLoopAddSource(CFRunLoopGetCurrent(), AXObserverGetRunLoopSource(observer!), .defaultMode)
+
+        debugLog("Observer setup complete for Notification Center (PID: \(pid))")
 
         widgetMonitorTimer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { _ in
             self.checkForWidgetChanges()
@@ -428,7 +440,7 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let widgetCount = windows.filter { hasWidgetElements($0) }.count
 
         if lastWidgetWindowCount != widgetCount {
-            debugLog("Widget count changed - repositioning notifications")
+            debugLog("Widget count changed (\(lastWidgetWindowCount) → \(widgetCount)) - triggering reposition")
             repositionAllNotifications()
         }
 
