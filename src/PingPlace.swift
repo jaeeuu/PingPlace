@@ -333,7 +333,15 @@ extension NotificationMover: NotificationPositionable {
 
         if debugMode {
             let windowTitle = getWindowTitle(window)
-            logger.info("Window created with title: '\(windowTitle ?? "nil", privacy: .public)'")
+            let windowIdentifier = getWindowIdentifier(window)
+            logger.info("Window created with title: '\(windowTitle ?? "nil", privacy: .public)', identifier: '\(windowIdentifier ?? "nil", privacy: .public)'")
+        }
+
+        if hasWidgetElements(window) {
+            if debugMode {
+                logger.info("Skipping - detected Notification Center UI (has widget elements)")
+            }
+            return
         }
 
         let targetSubroles = ["AXNotificationCenterBanner", "AXNotificationCenterAlert"]
@@ -366,6 +374,38 @@ extension NotificationMover: NotificationPositionable {
         )
 
         setPosition(window, x: newPosition.x, y: newPosition.y)
+    }
+
+    private func getWindowIdentifier(_ element: AXUIElement) -> String? {
+        var identifierRef: AnyObject?
+        guard AXUIElementCopyAttributeValue(element, kAXIdentifierAttribute as CFString, &identifierRef) == .success else {
+            return nil
+        }
+        return identifierRef as? String
+    }
+
+    private func hasWidgetElements(_ window: AXUIElement) -> Bool {
+        return findElementWithWidgetIdentifier(root: window) != nil
+    }
+
+    private func findElementWithWidgetIdentifier(root: AXUIElement) -> AXUIElement? {
+        if let identifier = getWindowIdentifier(root), identifier.hasPrefix("widget") {
+            return root
+        }
+
+        var childrenRef: AnyObject?
+        guard AXUIElementCopyAttributeValue(root, kAXChildrenAttribute as CFString, &childrenRef) == .success,
+              let children = childrenRef as? [AXUIElement]
+        else {
+            return nil
+        }
+
+        for child in children {
+            if let found = findElementWithWidgetIdentifier(root: child) {
+                return found
+            }
+        }
+        return nil
     }
 
     private func getPosition(of element: AXUIElement) -> CGPoint? {
