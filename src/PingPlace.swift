@@ -32,6 +32,11 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private let debugMode = UserDefaults.standard.bool(forKey: "debugMode")
     private let launchAgentPlistPath = NSHomeDirectory() + "/Library/LaunchAgents/com.grimridge.PingPlace.plist"
 
+    private var cachedInitialPosition: CGPoint?
+    private var cachedInitialWindowSize: CGSize?
+    private var cachedInitialNotifSize: CGSize?
+    private var cachedInitialPadding: CGFloat?
+
     private var currentPosition: NotificationPosition = {
         guard let rawValue = UserDefaults.standard.string(forKey: "notificationPosition"),
               let position = NotificationPosition(rawValue: rawValue)
@@ -190,6 +195,43 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate {
         sender.menu?.items.forEach { item in
             item.state = (item.representedObject as? NotificationPosition) == position ? .on : .off
         }
+
+        moveAllVisibleNotifications()
+    }
+
+    private func moveAllVisibleNotifications() {
+        guard let pid = NSWorkspace.shared.runningApplications.first(where: {
+            $0.bundleIdentifier == notificationCenterBundleID
+        })?.processIdentifier else { return }
+
+        let app = AXUIElementCreateApplication(pid)
+        var windowsRef: AnyObject?
+        guard AXUIElementCopyAttributeValue(app, kAXWindowsAttribute as CFString, &windowsRef) == .success,
+              let windows = windowsRef as? [AXUIElement] else { return }
+
+        for window in windows {
+            guard !hasWidgetElements(window) else { continue }
+
+            let targetSubroles = ["AXNotificationCenterBanner", "AXNotificationCenterAlert"]
+            guard let _ = findElementWithSubrole(root: window, targetSubroles: targetSubroles) else { continue }
+
+            if let cachedPos = cachedInitialPosition,
+               let cachedWinSize = cachedInitialWindowSize,
+               let cachedNotifSize = cachedInitialNotifSize,
+               let cachedPad = cachedInitialPadding
+            {
+                setPosition(window, x: cachedPos.x, y: cachedPos.y)
+
+                let newPosition = calculateNewPosition(
+                    windowSize: cachedWinSize,
+                    notifSize: cachedNotifSize,
+                    position: cachedPos,
+                    padding: cachedPad
+                )
+
+                setPosition(window, x: newPosition.x, y: newPosition.y)
+            }
+        }
     }
 
     @objc func showAbout() {
@@ -309,6 +351,21 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 logger.info("Failed validation checks")
             }
             return
+        }
+
+        if cachedInitialPosition == nil {
+            let screenWidth = NSScreen.main!.frame.width
+            let rightEdge = position.x + notifSize.width
+            let padding = screenWidth - rightEdge
+
+            cachedInitialPosition = position
+            cachedInitialWindowSize = windowSize
+            cachedInitialNotifSize = notifSize
+            cachedInitialPadding = padding
+
+            if debugMode {
+                logger.info("Cached initial notification position and dimensions")
+            }
         }
 
         if debugMode {
