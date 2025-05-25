@@ -227,8 +227,9 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     private func repositionNewNotification(_ window: AXUIElement) -> Bool {
         guard currentPosition != .topRight else { return false }
-        guard !hasWidgetElements(window) else {
-            debugLog("Skipping reposition - widget window detected")
+
+        if hasNotificationCenterUI() {
+            debugLog("Skipping reposition - Notification Center UI detected")
             return false
         }
 
@@ -288,7 +289,9 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
         var repositionedCount = 0
         for window in windows {
-            guard !hasWidgetElements(window) else { continue }
+            if let identifier = getWindowIdentifier(window), identifier.hasPrefix("widget") {
+                continue
+            }
 
             let targetSubroles = ["AXNotificationCenterBanner", "AXNotificationCenterAlert"]
             guard let _ = findElementWithSubrole(root: window, targetSubroles: targetSubroles) else { continue }
@@ -310,7 +313,7 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     func handleNewNotificationWindow(_ window: AXUIElement) {
-        guard !hasWidgetElements(window) else { return }
+        guard !hasNotificationCenterUI() else { return }
         guard repositionNewNotification(window) else { return }
 
         pollingEndTime = Date().addingTimeInterval(6.5)
@@ -428,27 +431,26 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate {
             return
         }
 
-        guard let pid = NSWorkspace.shared.runningApplications.first(where: {
-            $0.bundleIdentifier == notificationCenterBundleID
-        })?.processIdentifier else { return }
+        let hasNCUI = hasNotificationCenterUI()
+        let currentNCState = hasNCUI ? 1 : 0
 
-        let app = AXUIElementCreateApplication(pid)
-        var windowsRef: AnyObject?
-        guard AXUIElementCopyAttributeValue(app, kAXWindowsAttribute as CFString, &windowsRef) == .success,
-              let windows = windowsRef as? [AXUIElement] else { return }
-
-        let widgetCount = windows.filter { hasWidgetElements($0) }.count
-
-        if lastWidgetWindowCount != widgetCount {
-            debugLog("Widget count changed (\(lastWidgetWindowCount) → \(widgetCount)) - triggering reposition")
-            repositionAllNotifications()
+        if lastWidgetWindowCount != currentNCState {
+            debugLog("Notification Center state changed (\(lastWidgetWindowCount) → \(currentNCState)) - triggering reposition")
+            if !hasNCUI {
+                repositionAllNotifications()
+            }
         }
 
-        lastWidgetWindowCount = widgetCount
+        lastWidgetWindowCount = currentNCState
     }
 
-    private func hasWidgetElements(_ window: AXUIElement) -> Bool {
-        return findElementWithWidgetIdentifier(root: window) != nil
+    private func hasNotificationCenterUI() -> Bool {
+        guard let pid = NSWorkspace.shared.runningApplications.first(where: {
+            $0.bundleIdentifier == notificationCenterBundleID
+        })?.processIdentifier else { return false }
+
+        let app = AXUIElementCreateApplication(pid)
+        return findElementWithWidgetIdentifier(root: app) != nil
     }
 
     private func findElementWithWidgetIdentifier(root: AXUIElement) -> AXUIElement? {
@@ -458,10 +460,7 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
         var childrenRef: AnyObject?
         guard AXUIElementCopyAttributeValue(root, kAXChildrenAttribute as CFString, &childrenRef) == .success,
-              let children = childrenRef as? [AXUIElement]
-        else {
-            return nil
-        }
+              let children = childrenRef as? [AXUIElement] else { return nil }
 
         for child in children {
             if let found = findElementWithWidgetIdentifier(root: child) {
