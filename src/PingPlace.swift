@@ -1,5 +1,6 @@
 import ApplicationServices
 import Cocoa
+import os.log
 
 enum NotificationPosition {
     case topLeft, topMiddle, topRight
@@ -25,6 +26,8 @@ class NotificationMover: NSObject, NSApplicationDelegate {
     private var axObserver: AXObserver?
     private var statusItem: NSStatusItem?
     private var isMenuBarIconHidden: Bool = UserDefaults.standard.bool(forKey: "isMenuBarIconHidden")
+    private let logger = Logger(subsystem: "com.grimridge.PingPlace", category: "NotificationMover")
+    private let debugMode: Bool
 
     private var currentPosition: NotificationPosition = {
         let rawValue = UserDefaults.standard.string(forKey: "notificationPosition") ?? "topMiddle"
@@ -43,6 +46,11 @@ class NotificationMover: NSObject, NSApplicationDelegate {
     }()
 
     private let launchAgentPlistPath = NSHomeDirectory() + "/Library/LaunchAgents/com.grimridge.PingPlace.plist"
+
+    override init() {
+        debugMode = UserDefaults.standard.bool(forKey: "debugMode")
+        super.init()
+    }
 
     func applicationDidFinishLaunching(_: Notification) {
         checkAccessibilityPermissions()
@@ -323,13 +331,27 @@ extension NotificationMover: NotificationPositionable {
     func repositionNotification(_ window: AXUIElement) {
         if currentPosition == .topRight { return }
 
+        if debugMode {
+            let windowTitle = getWindowTitle(window)
+            logger.info("Window created with title: '\(windowTitle ?? "nil", privacy: .public)'")
+        }
+
         let targetSubroles = ["AXNotificationCenterBanner", "AXNotificationCenterAlert"]
 
         guard let windowSize = getSize(of: window),
               let bannerContainer = findElementWithSubrole(root: window, targetSubroles: targetSubroles),
               let notifSize = getSize(of: bannerContainer),
               let position = getPosition(of: bannerContainer)
-        else { return }
+        else {
+            if debugMode {
+                logger.info("Failed validation checks")
+            }
+            return
+        }
+
+        if debugMode {
+            logger.info("Repositioning valid notification window")
+        }
 
         let screenWidth = NSScreen.main!.frame.width
         let rightEdge = position.x + notifSize.width
@@ -388,6 +410,14 @@ extension NotificationMover: NotificationPositionable {
         }
 
         return (newX, newY)
+    }
+
+    private func getWindowTitle(_ element: AXUIElement) -> String? {
+        var titleRef: AnyObject?
+        guard AXUIElementCopyAttributeValue(element, kAXTitleAttribute as CFString, &titleRef) == .success else {
+            return nil
+        }
+        return titleRef as? String
     }
 }
 
