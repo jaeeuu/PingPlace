@@ -5,6 +5,7 @@ enum NotificationPosition {
     case topLeft, topMiddle, topRight
     case middleLeft, middleRight
     case bottomLeft, bottomMiddle, bottomRight
+    case deadCenter
 }
 
 protocol NotificationPositionable {
@@ -32,6 +33,7 @@ class NotificationMover: NSObject, NSApplicationDelegate {
         case "topMiddle": return .topMiddle
         case "topRight": return .topRight
         case "middleLeft": return .middleLeft
+        case "deadCenter": return .deadCenter
         case "middleRight": return .middleRight
         case "bottomLeft": return .bottomLeft
         case "bottomMiddle": return .bottomMiddle
@@ -100,6 +102,7 @@ extension NotificationMover: UIConfigurable {
             ("Top Middle", .topMiddle),
             ("Top Right", .topRight),
             ("Middle Left", .middleLeft),
+            ("Dead Center", .deadCenter),
             ("Middle Right", .middleRight),
             ("Bottom Left", .bottomLeft),
             ("Bottom Middle", .bottomMiddle),
@@ -367,7 +370,7 @@ extension NotificationMover: NotificationPositionable {
         switch currentPosition {
         case .topLeft, .middleLeft, .bottomLeft:
             newX = padding - position.x
-        case .topMiddle, .bottomMiddle:
+        case .topMiddle, .bottomMiddle, .deadCenter:
             newX = -(windowSize.width - notifSize.width) / 2
         case .topRight, .middleRight, .bottomRight:
             newX = 0
@@ -376,7 +379,7 @@ extension NotificationMover: NotificationPositionable {
         switch currentPosition {
         case .topLeft, .topMiddle, .topRight:
             newY = 0
-        case .middleLeft, .middleRight:
+        case .middleLeft, .middleRight, .deadCenter:
             let dockSize = NSScreen.main!.frame.height - NSScreen.main!.visibleFrame.height
             newY = (windowSize.height - notifSize.height) / 2 - dockSize - paddingAboveDock
         case .bottomLeft, .bottomMiddle, .bottomRight:
