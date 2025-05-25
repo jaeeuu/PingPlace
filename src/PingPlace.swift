@@ -46,6 +46,11 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate {
         return position
     }()
 
+    private func debugLog(_ message: String) {
+        guard debugMode else { return }
+        logger.info("\(message, privacy: .public)")
+    }
+
     func applicationDidFinishLaunching(_: Notification) {
         checkAccessibilityPermissions()
         setupObserver()
@@ -330,13 +335,11 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if debugMode {
             let windowTitle = getWindowTitle(window)
             let windowIdentifier = getWindowIdentifier(window)
-            logger.info("Window created with title: '\(windowTitle ?? "nil", privacy: .public)', identifier: '\(windowIdentifier ?? "nil", privacy: .public)'")
+            debugLog("Window created with title: '\(windowTitle ?? "nil")', identifier: '\(windowIdentifier ?? "nil")'")
         }
 
         guard !hasWidgetElements(window) else {
-            if debugMode {
-                logger.info("Skipping - detected Notification Center UI (has widget elements)")
-            }
+            debugLog("Skipping - detected Notification Center UI (has widget elements)")
             return
         }
 
@@ -347,9 +350,7 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate {
               let notifSize = getSize(of: bannerContainer),
               let position = getPosition(of: bannerContainer)
         else {
-            if debugMode {
-                logger.info("Failed validation checks")
-            }
+            debugLog("Failed validation checks")
             return
         }
 
@@ -363,14 +364,10 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate {
             cachedInitialNotifSize = notifSize
             cachedInitialPadding = padding
 
-            if debugMode {
-                logger.info("Cached initial notification position and dimensions")
-            }
+            debugLog("Cached initial notification position and dimensions")
         }
 
-        if debugMode {
-            logger.info("Repositioning valid notification window")
-        }
+        debugLog("Repositioning valid notification window")
 
         let screenWidth = NSScreen.main!.frame.width
         let rightEdge = position.x + notifSize.width
