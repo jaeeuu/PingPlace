@@ -225,12 +225,12 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate {
         debugLog("Initial notification cached - size: \(notifSize), position: \(position), padding: \(padding)")
     }
 
-    private func repositionNewNotification(_ window: AXUIElement) -> Bool {
-        guard currentPosition != .topRight else { return false }
+    func repositionNewNotification(_ window: AXUIElement) {
+        guard currentPosition != .topRight else { return }
 
         if hasNotificationCenterUI() {
             debugLog("Skipping reposition - Notification Center UI detected")
-            return false
+            return
         }
 
         let targetSubroles: [String] = ["AXNotificationCenterBanner", "AXNotificationCenterAlert"]
@@ -240,7 +240,7 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate {
               let position: CGPoint = getPosition(of: bannerContainer)
         else {
             debugLog("Failed to get notification dimensions or find banner container")
-            return false
+            return
         }
 
         cacheInitialNotificationData(windowSize: windowSize, notifSize: notifSize, position: position)
@@ -257,8 +257,8 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate {
         )
 
         setPosition(window, x: newPosition.x, y: newPosition.y)
+        pollingEndTime = Date().addingTimeInterval(6.5)
         debugLog("Repositioned notification to \(currentPosition.displayName) - new coords: (\(newPosition.x), \(newPosition.y))")
-        return true
     }
 
     private func repositionAllNotifications() {
@@ -310,13 +310,6 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
 
         debugLog("Repositioned \(repositionedCount) existing notifications to \(currentPosition.displayName)")
-    }
-
-    func handleNewNotificationWindow(_ window: AXUIElement) {
-        guard !hasNotificationCenterUI() else { return }
-        guard repositionNewNotification(window) else { return }
-
-        pollingEndTime = Date().addingTimeInterval(6.5)
     }
 
     @objc func showAbout() {
@@ -567,7 +560,7 @@ private func observerCallback(observer _: AXObserver, element: AXUIElement, noti
 
     let notificationString: String = notification as String
     if notificationString == kAXWindowCreatedNotification as String {
-        mover.handleNewNotificationWindow(element)
+        mover.repositionNewNotification(element)
     }
 }
 
