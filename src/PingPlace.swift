@@ -37,6 +37,10 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var cachedInitialNotifSize: CGSize?
     private var cachedInitialPadding: CGFloat?
 
+    private var widgetMonitorTimer: Timer?
+    private var lastWidgetWindowCount = 0
+    private var pollingEndTime: Date?
+
     private var currentPosition: NotificationPosition = {
         guard let rawValue = UserDefaults.standard.string(forKey: "notificationPosition"),
               let position = NotificationPosition(rawValue: rawValue)
@@ -327,6 +331,10 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let selfPtr = UnsafeMutableRawPointer(Unmanaged.passUnretained(self).toOpaque())
         AXObserverAddNotification(observer!, app, kAXWindowCreatedNotification as CFString, selfPtr)
         CFRunLoopAddSource(CFRunLoopGetCurrent(), AXObserverGetRunLoopSource(observer!), .defaultMode)
+
+        widgetMonitorTimer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { _ in
+            self.checkForWidgetChanges()
+        }
     }
 
     func repositionNotification(_ window: AXUIElement) {
@@ -381,6 +389,8 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate {
         )
 
         setPosition(window, x: newPosition.x, y: newPosition.y)
+
+        pollingEndTime = Date().addingTimeInterval(6.5)
     }
 
     private func getWindowIdentifier(_ element: AXUIElement) -> String? {
@@ -389,6 +399,30 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate {
             return nil
         }
         return identifierRef as? String
+    }
+
+    private func checkForWidgetChanges() {
+        guard let pollingEnd = pollingEndTime, Date() < pollingEnd else {
+            return
+        }
+
+        guard let pid = NSWorkspace.shared.runningApplications.first(where: {
+            $0.bundleIdentifier == notificationCenterBundleID
+        })?.processIdentifier else { return }
+
+        let app = AXUIElementCreateApplication(pid)
+        var windowsRef: AnyObject?
+        guard AXUIElementCopyAttributeValue(app, kAXWindowsAttribute as CFString, &windowsRef) == .success,
+              let windows = windowsRef as? [AXUIElement] else { return }
+
+        let widgetCount = windows.filter { hasWidgetElements($0) }.count
+
+        if lastWidgetWindowCount != widgetCount {
+            debugLog("Widget count changed - repositioning notifications")
+            moveAllVisibleNotifications()
+        }
+
+        lastWidgetWindowCount = widgetCount
     }
 
     private func hasWidgetElements(_ window: AXUIElement) -> Bool {
@@ -507,9 +541,13 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 }
 
-private func observerCallback(observer _: AXObserver, element: AXUIElement, notification _: CFString, context: UnsafeMutableRawPointer?) {
+private func observerCallback(observer _: AXObserver, element: AXUIElement, notification: CFString, context: UnsafeMutableRawPointer?) {
     let mover = Unmanaged<NotificationMover>.fromOpaque(context!).takeUnretainedValue()
-    mover.repositionNotification(element)
+
+    let notificationString = notification as String
+    if notificationString == kAXWindowCreatedNotification as String {
+        mover.repositionNotification(element)
+    }
 }
 
 let app = NSApplication.shared
