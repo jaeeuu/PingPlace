@@ -205,10 +205,61 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate {
             item.state = (item.representedObject as? NotificationPosition) == position ? .on : .off
         }
 
-        moveAllVisibleNotifications()
+        repositionAllNotifications()
     }
 
-    private func moveAllVisibleNotifications() {
+    private func cacheInitialNotificationData(windowSize: CGSize, notifSize: CGSize, position: CGPoint) {
+        guard cachedInitialPosition == nil else { return }
+
+        let screenWidth = NSScreen.main!.frame.width
+        let rightEdge = position.x + notifSize.width
+        let padding = screenWidth - rightEdge
+
+        cachedInitialPosition = position
+        cachedInitialWindowSize = windowSize
+        cachedInitialNotifSize = notifSize
+        cachedInitialPadding = padding
+
+        debugLog("Cached initial notification position and dimensions")
+    }
+
+    private func repositionNewNotification(_ window: AXUIElement) -> Bool {
+        guard currentPosition != .topRight else { return false }
+        guard !hasWidgetElements(window) else { return false }
+
+        let targetSubroles = ["AXNotificationCenterBanner", "AXNotificationCenterAlert"]
+        guard let windowSize = getSize(of: window),
+              let bannerContainer = findElementWithSubrole(root: window, targetSubroles: targetSubroles),
+              let notifSize = getSize(of: bannerContainer),
+              let position = getPosition(of: bannerContainer)
+        else {
+            return false
+        }
+
+        cacheInitialNotificationData(windowSize: windowSize, notifSize: notifSize, position: position)
+
+        let screenWidth = NSScreen.main!.frame.width
+        let rightEdge = position.x + notifSize.width
+        let padding = screenWidth - rightEdge
+
+        let newPosition = calculateNewPosition(
+            windowSize: windowSize,
+            notifSize: notifSize,
+            position: position,
+            padding: padding
+        )
+
+        setPosition(window, x: newPosition.x, y: newPosition.y)
+        return true
+    }
+
+    private func repositionAllNotifications() {
+        guard let cachedPos = cachedInitialPosition,
+              let cachedWinSize = cachedInitialWindowSize,
+              let cachedNotifSize = cachedInitialNotifSize,
+              let cachedPad = cachedInitialPadding
+        else { return }
+
         guard let pid = NSWorkspace.shared.runningApplications.first(where: {
             $0.bundleIdentifier == notificationCenterBundleID
         })?.processIdentifier else { return }
@@ -224,23 +275,38 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate {
             let targetSubroles = ["AXNotificationCenterBanner", "AXNotificationCenterAlert"]
             guard let _ = findElementWithSubrole(root: window, targetSubroles: targetSubroles) else { continue }
 
-            if let cachedPos = cachedInitialPosition,
-               let cachedWinSize = cachedInitialWindowSize,
-               let cachedNotifSize = cachedInitialNotifSize,
-               let cachedPad = cachedInitialPadding
-            {
-                setPosition(window, x: cachedPos.x, y: cachedPos.y)
+            setPosition(window, x: cachedPos.x, y: cachedPos.y)
 
-                let newPosition = calculateNewPosition(
-                    windowSize: cachedWinSize,
-                    notifSize: cachedNotifSize,
-                    position: cachedPos,
-                    padding: cachedPad
-                )
+            let newPosition = calculateNewPosition(
+                windowSize: cachedWinSize,
+                notifSize: cachedNotifSize,
+                position: cachedPos,
+                padding: cachedPad
+            )
 
-                setPosition(window, x: newPosition.x, y: newPosition.y)
-            }
+            setPosition(window, x: newPosition.x, y: newPosition.y)
         }
+    }
+
+    func handleNewNotificationWindow(_ window: AXUIElement) {
+        if debugMode {
+            let windowTitle = getWindowTitle(window)
+            let windowIdentifier = getWindowIdentifier(window)
+            debugLog("Window created with title: '\(windowTitle ?? "nil")', identifier: '\(windowIdentifier ?? "nil")'")
+        }
+
+        guard !hasWidgetElements(window) else {
+            debugLog("Skipping - detected Notification Center UI (has widget elements)")
+            return
+        }
+
+        guard repositionNewNotification(window) else {
+            debugLog("Failed validation checks")
+            return
+        }
+
+        debugLog("Repositioning valid notification window")
+        pollingEndTime = Date().addingTimeInterval(6.5)
     }
 
     @objc func showAbout() {
@@ -337,62 +403,6 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
     }
 
-    func repositionNotification(_ window: AXUIElement) {
-        guard currentPosition != .topRight else { return }
-
-        if debugMode {
-            let windowTitle = getWindowTitle(window)
-            let windowIdentifier = getWindowIdentifier(window)
-            debugLog("Window created with title: '\(windowTitle ?? "nil")', identifier: '\(windowIdentifier ?? "nil")'")
-        }
-
-        guard !hasWidgetElements(window) else {
-            debugLog("Skipping - detected Notification Center UI (has widget elements)")
-            return
-        }
-
-        let targetSubroles = ["AXNotificationCenterBanner", "AXNotificationCenterAlert"]
-
-        guard let windowSize = getSize(of: window),
-              let bannerContainer = findElementWithSubrole(root: window, targetSubroles: targetSubroles),
-              let notifSize = getSize(of: bannerContainer),
-              let position = getPosition(of: bannerContainer)
-        else {
-            debugLog("Failed validation checks")
-            return
-        }
-
-        if cachedInitialPosition == nil {
-            let screenWidth = NSScreen.main!.frame.width
-            let rightEdge = position.x + notifSize.width
-            let padding = screenWidth - rightEdge
-
-            cachedInitialPosition = position
-            cachedInitialWindowSize = windowSize
-            cachedInitialNotifSize = notifSize
-            cachedInitialPadding = padding
-
-            debugLog("Cached initial notification position and dimensions")
-        }
-
-        debugLog("Repositioning valid notification window")
-
-        let screenWidth = NSScreen.main!.frame.width
-        let rightEdge = position.x + notifSize.width
-        let padding = screenWidth - rightEdge
-
-        let newPosition = calculateNewPosition(
-            windowSize: windowSize,
-            notifSize: notifSize,
-            position: position,
-            padding: padding
-        )
-
-        setPosition(window, x: newPosition.x, y: newPosition.y)
-
-        pollingEndTime = Date().addingTimeInterval(6.5)
-    }
-
     private func getWindowIdentifier(_ element: AXUIElement) -> String? {
         var identifierRef: AnyObject?
         guard AXUIElementCopyAttributeValue(element, kAXIdentifierAttribute as CFString, &identifierRef) == .success else {
@@ -419,7 +429,7 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
         if lastWidgetWindowCount != widgetCount {
             debugLog("Widget count changed - repositioning notifications")
-            moveAllVisibleNotifications()
+            repositionAllNotifications()
         }
 
         lastWidgetWindowCount = widgetCount
@@ -546,7 +556,7 @@ private func observerCallback(observer _: AXObserver, element: AXUIElement, noti
 
     let notificationString = notification as String
     if notificationString == kAXWindowCreatedNotification as String {
-        mover.repositionNotification(element)
+        mover.handleNewNotificationWindow(element)
     }
 }
 
