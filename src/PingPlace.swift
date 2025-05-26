@@ -305,7 +305,7 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let elements: [(NSView, CGFloat)] = [
             (createIconView(), 165),
             (createLabel("PingPlace", font: .boldSystemFont(ofSize: 16)), 110),
-            (createLabel("Version 1.2.0"), 90),
+            (createLabel("Version 1.3.0"), 90),
             (createLabel("Made with <3 by Wade"), 70),
             (createTwitterButton(), 40),
             (createLabel("© 2025 All rights reserved.", color: .secondaryLabelColor, size: 11), 20),
