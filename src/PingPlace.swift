@@ -13,7 +13,7 @@ enum NotificationPosition: String, CaseIterable {
         case .topMiddle: return "Top Middle"
         case .topRight: return "Top Right"
         case .middleLeft: return "Middle Left"
-        case .deadCenter: return "Dead Center"
+        case .deadCenter: return "Middle"
         case .middleRight: return "Middle Right"
         case .bottomLeft: return "Bottom Left"
         case .bottomMiddle: return "Bottom Middle"
