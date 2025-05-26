@@ -61,6 +61,7 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if !isMenuBarIconHidden {
             setupStatusItem()
         }
+        repositionAllNotifications()
     }
 
     func applicationWillBecomeActive(_: Notification) {
@@ -262,19 +263,15 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     private func repositionAllNotifications() {
-        guard let cachedPos: CGPoint = cachedInitialPosition,
-              let cachedWinSize: CGSize = cachedInitialWindowSize,
-              let cachedNotifSize: CGSize = cachedInitialNotifSize,
-              let cachedPad: CGFloat = cachedInitialPadding
-        else {
-            debugLog("Cannot reposition all - missing cached data")
-            return
-        }
-
         guard let pid: pid_t = NSWorkspace.shared.runningApplications.first(where: {
             $0.bundleIdentifier == notificationCenterBundleID
         })?.processIdentifier else {
             debugLog("Cannot find Notification Center process")
+            return
+        }
+
+        if hasNotificationCenterUI() {
+            debugLog("Skipping reposition - Notification Center UI detected")
             return
         }
 
@@ -294,22 +291,54 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate {
             }
 
             let targetSubroles: [String] = ["AXNotificationCenterBanner", "AXNotificationCenterAlert"]
-            guard let _ = findElementWithSubrole(root: window, targetSubroles: targetSubroles) else { continue }
+            guard let bannerContainer: AXUIElement = findElementWithSubrole(root: window, targetSubroles: targetSubroles) else {
+                continue
+            }
 
-            setPosition(window, x: cachedPos.x, y: cachedPos.y)
+            if cachedInitialPosition == nil {
+                guard let windowSize: CGSize = getSize(of: window),
+                      let notifSize: CGSize = getSize(of: bannerContainer),
+                      let position: CGPoint = getPosition(of: bannerContainer)
+                else {
+                    debugLog("Failed to get dimensions for initial cache in repositionAllNotifications for window: \(String(describing: getWindowTitle(window)))")
+                    continue
+                }
+                cacheInitialNotificationData(windowSize: windowSize, notifSize: notifSize, position: position)
+            }
+
+            guard let currentCachedPos: CGPoint = cachedInitialPosition,
+                  let currentCachedWinSize: CGSize = cachedInitialWindowSize,
+                  let currentCachedNotifSize: CGSize = cachedInitialNotifSize,
+                  let currentCachedPad: CGFloat = cachedInitialPadding
+            else {
+                debugLog("Cache data is not available after attempting to populate in repositionAllNotifications. Aborting repositioning for all windows.")
+                return
+            }
+
+            setPosition(window, x: currentCachedPos.x, y: currentCachedPos.y)
 
             let newPosition: (x: CGFloat, y: CGFloat) = calculateNewPosition(
-                windowSize: cachedWinSize,
-                notifSize: cachedNotifSize,
-                position: cachedPos,
-                padding: cachedPad
+                windowSize: currentCachedWinSize,
+                notifSize: currentCachedNotifSize,
+                position: currentCachedPos,
+                padding: currentCachedPad
             )
 
             setPosition(window, x: newPosition.x, y: newPosition.y)
             repositionedCount += 1
         }
 
-        debugLog("Repositioned \(repositionedCount) existing notifications to \(currentPosition.displayName)")
+        if repositionedCount > 0 {
+            debugLog("Repositioned \(repositionedCount) existing notifications to \(currentPosition.displayName) using cached data.")
+        } else {
+            if cachedInitialPosition == nil {
+                debugLog("RepositionAll: No notifications repositioned because initial cache data could not be established.")
+            } else if windows.isEmpty {
+                debugLog("RepositionAll: No notification windows found to reposition.")
+            } else {
+                debugLog("RepositionAll: No notifications were repositioned. Processed \(windows.count) potential windows. Cache was available. Check individual window processing logs.")
+            }
+        }
     }
 
     @objc func showAbout() {
