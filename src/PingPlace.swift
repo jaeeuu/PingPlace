@@ -264,7 +264,7 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate {
         setPosition(window, x: newPosition.x, y: newPosition.y)
 
         pollingEndTime = Date().addingTimeInterval(6.5)
-        debugLog("Moved notification to \(currentPosition.displayName)")
+        debugLog("Moved notification to \(currentPosition.displayName) at (\(newPosition.x), \(newPosition.y))")
     }
 
     private func moveAllNotifications() {
@@ -460,6 +460,7 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate {
         position: CGPoint,
         padding: CGFloat
     ) -> (x: CGFloat, y: CGFloat) {
+        debugLog("Calculating new position with windowSize: \(windowSize), notifSize: \(notifSize), position: \(position), padding: \(padding)")
         let newX: CGFloat
         let newY: CGFloat
 
@@ -483,6 +484,7 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate {
             newY = windowSize.height - notifSize.height - dockSize - paddingAboveDock
         }
 
+        debugLog("Calculated new position - x: \(newX), y: \(newY)")
         return (newX, newY)
     }
 
