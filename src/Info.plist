@@ -7,13 +7,21 @@
     <key>CFBundleIdentifier</key>
     <string>com.grimridge.PingPlace</string>
     <key>CFBundleVersion</key>
-    <string>1.0</string>
+    <string>1.3.0</string>
+    <key>CFBundleShortVersionString</key>
+    <string>1.3.0</string>
     <key>CFBundleExecutable</key>
     <string>PingPlace</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleIconFile</key>
     <string>icon</string>
+    <key>LSApplicationCategoryType</key>
+    <string>public.app-category.utilities</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>14.0</string>
+    <key>NSHumanReadableCopyright</key>
+    <string>© 2025 Wade Grimridge. All rights reserved.</string>
     <key>NSPrincipalClass</key>
     <string>NSApplication</string>
     <key>LSUIElement</key>

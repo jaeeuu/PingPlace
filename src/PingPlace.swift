@@ -302,13 +302,16 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
         let contentView = NSView(frame: NSRect(x: 0, y: 0, width: 300, height: 180))
 
+        let version: String = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "N/A"
+        let copyright: String = Bundle.main.infoDictionary?["NSHumanReadableCopyright"] as? String ?? ""
+
         let elements: [(NSView, CGFloat)] = [
             (createIconView(), 165),
             (createLabel("PingPlace", font: .boldSystemFont(ofSize: 16)), 110),
-            (createLabel("Version 1.3.0"), 90),
+            (createLabel("Version \(version)"), 90),
             (createLabel("Made with <3 by Wade"), 70),
             (createTwitterButton(), 40),
-            (createLabel("© 2025 All rights reserved.", color: .secondaryLabelColor, size: 11), 20),
+            (createLabel(copyright, color: .secondaryLabelColor, size: 11), 20),
         ]
 
         for (view, y) in elements {
