@@ -26,5 +26,7 @@
     <string>NSApplication</string>
     <key>LSUIElement</key>
     <true/>
+    <key>NSAccessibilityUsageDescription</key>
+    <string>PingPlace requires accessibility permissions to detect and reposition notifications on your screen.</string>
 </dict>
 </plist>

@@ -72,18 +72,20 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     private func checkAccessibilityPermissions() {
-        guard !AXIsProcessTrusted() else { return }
+        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true]
+        guard AXIsProcessTrustedWithOptions(options as CFDictionary) else {
+            let alert = NSAlert()
+            alert.messageText = "Accessibility Permission Required"
+            alert.informativeText = "PingPlace needs accessibility permission to detect and move notifications.\n\nPlease grant permission in System Settings and restart the app."
+            alert.addButton(withTitle: "Open System Settings")
+            alert.addButton(withTitle: "Quit")
 
-        let alert = NSAlert()
-        alert.messageText = "Accessibility Permissions Needed"
-        alert.informativeText = "Please enable accessibility for PingPlace in System Preferences > Security & Privacy > Privacy > Accessibility.\n\nIf PingPlace is already listed, please select it and click the minus (-) button to remove it completely, then add it again.\n\nSorry for the inconvenience (blame Apple's greed), it shouldn't happen again!"
-        alert.addButton(withTitle: "Open System Preferences")
-        alert.addButton(withTitle: "Quit")
-
-        if alert.runModal() == .alertFirstButtonReturn {
-            NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
+            if alert.runModal() == .alertFirstButtonReturn {
+                NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
+            }
+            NSApplication.shared.terminate(nil)
+            return
         }
-        NSApplication.shared.terminate(nil)
     }
 
     func setupStatusItem() {
