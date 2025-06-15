@@ -424,7 +424,7 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     private func findElementWithWidgetIdentifier(root: AXUIElement) -> AXUIElement? {
-        if let identifier: String = getWindowIdentifier(root), identifier.hasPrefix("widget") {
+        if let identifier: String = getWindowIdentifier(root), identifier.hasPrefix("widget-local") {
             return root
         }
 
