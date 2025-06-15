@@ -215,15 +215,24 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate {
         guard cachedInitialPosition == nil else { return }
 
         let screenWidth: CGFloat = NSScreen.main!.frame.width
-        let rightEdge: CGFloat = position.x + notifSize.width
-        let padding: CGFloat = screenWidth - rightEdge
+        var padding: CGFloat
+        var effectivePosition = position
 
-        cachedInitialPosition = position
+        if position.x + notifSize.width > screenWidth {
+            debugLog("Detected incorrect initial position.x: \(position.x). Recalculating position.")
+            padding = 16.0
+            effectivePosition.x = screenWidth - notifSize.width - padding
+        } else {
+            let rightEdge: CGFloat = position.x + notifSize.width
+            padding = screenWidth - rightEdge
+        }
+
+        cachedInitialPosition = effectivePosition
         cachedInitialWindowSize = windowSize
         cachedInitialNotifSize = notifSize
         cachedInitialPadding = padding
 
-        debugLog("Initial notification cached - size: \(notifSize), position: \(position), padding: \(padding)")
+        debugLog("Initial notification cached - size: \(notifSize), position: \(effectivePosition), padding: \(padding)")
     }
 
     func moveNotification(_ window: AXUIElement) {
@@ -468,7 +477,7 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate {
         case .topLeft, .middleLeft, .bottomLeft:
             newX = padding - position.x
         case .topMiddle, .bottomMiddle, .deadCenter:
-            newX = -(windowSize.width - notifSize.width) / 2
+            newX = (windowSize.width - notifSize.width) / 2 - position.x
         case .topRight, .middleRight, .bottomRight:
             newX = 0
         }
@@ -478,7 +487,7 @@ class NotificationMover: NSObject, NSApplicationDelegate, NSWindowDelegate {
             newY = 0
         case .middleLeft, .middleRight, .deadCenter:
             let dockSize: CGFloat = NSScreen.main!.frame.height - NSScreen.main!.visibleFrame.height
-            newY = (windowSize.height - notifSize.height) / 2 - dockSize - paddingAboveDock
+            newY = (windowSize.height - notifSize.height) / 2 - dockSize
         case .bottomLeft, .bottomMiddle, .bottomRight:
             let dockSize: CGFloat = NSScreen.main!.frame.height - NSScreen.main!.visibleFrame.height
             newY = windowSize.height - notifSize.height - dockSize - paddingAboveDock
